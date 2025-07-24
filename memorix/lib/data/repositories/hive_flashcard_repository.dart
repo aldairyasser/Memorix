@@ -28,17 +28,36 @@ class HiveFlashcardRepository implements FlashcardRepository {
     final model = box.get(flashcardId);
     if (model == null) return;
 
-    if (quality < 2) {
-      model.repetitions = 0;
-      model.easeFactor = (model.easeFactor - 20).clamp(130, 300);
-      model.nextReview = DateTime.now().add(const Duration(days: 1));
+    final now = DateTime.now();
+    int repetitions = model.repetitions;
+    double ef = model.easeFactor.toDouble(); // convertir a double temporalmente
+    DateTime nextReview;
+
+    if (quality < 3) {
+      repetitions = 0;
+      nextReview = now.add(const Duration(days: 1));
     } else {
-      model.repetitions += 1;
-      model.easeFactor += 10;
-      model.nextReview = DateTime.now().add(
-        Duration(days: model.repetitions * model.easeFactor ~/ 100),
-      );
+      repetitions += 1;
+      ef += (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+      if (ef < 1.3) ef = 1.3;
+
+      int interval;
+      if (repetitions == 1) {
+        interval = 1;
+      } else if (repetitions == 2) {
+        interval = 6;
+      } else {
+        interval = (model.repetitions * ef).round();
+      }
+
+      nextReview = now.add(Duration(days: interval));
     }
+
+    model.repetitions = repetitions;
+    model.easeFactor = ef.round(); // guarda como int nuevamente
+    model.nextReview = nextReview;
+
     await model.save();
   }
+
 }
